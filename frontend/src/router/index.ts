@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 
 const routes: RouteRecordRaw[] = [
   // Blog public routes
@@ -15,13 +16,19 @@ const routes: RouteRecordRaw[] = [
       { path: 'about', name: 'about', component: () => import('@/views/blog/AboutPage.vue') },
     ],
   },
-  // Admin routes
+  // Admin login - standalone, no AdminLayout wrapper
+  {
+    path: '/admin/login',
+    name: 'admin-login',
+    component: () => import('@/views/admin/LoginPage.vue'),
+  },
+  // Admin routes - wrapped in AdminLayout, requires authentication
   {
     path: '/admin',
     component: () => import('@/layouts/AdminLayout.vue'),
+    meta: { requiresAuth: true },
     children: [
       { path: '', redirect: '/admin/dashboard' },
-      { path: 'login', name: 'admin-login', component: () => import('@/views/admin/LoginPage.vue') },
       { path: 'dashboard', name: 'admin-dashboard', component: () => import('@/views/admin/DashboardPage.vue') },
       { path: 'posts', name: 'admin-posts', component: () => import('@/views/admin/PostListPage.vue') },
       { path: 'posts/edit/:id?', name: 'admin-post-edit', component: () => import('@/views/admin/PostEditPage.vue') },
@@ -45,6 +52,23 @@ const routes: RouteRecordRaw[] = [
 const router = createRouter({
   history: createWebHistory(),
   routes,
+})
+
+// Navigation guard
+router.beforeEach((to) => {
+  const authStore = useAuthStore()
+
+  // Redirect to login if route requires auth and user is not authenticated
+  if (to.matched.some(record => record.meta.requiresAuth)) {
+    if (!authStore.isAuthenticated) {
+      return { name: 'admin-login' }
+    }
+  }
+
+  // Redirect to dashboard if already authenticated and visiting login
+  if (to.name === 'admin-login' && authStore.isAuthenticated) {
+    return { name: 'admin-dashboard' }
+  }
 })
 
 export default router
