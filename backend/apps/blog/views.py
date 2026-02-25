@@ -1,10 +1,12 @@
 from rest_framework import viewsets, generics, permissions
 from rest_framework.response import Response
 from django.db.models import Count, Q
-from .models import Category, Tag, Post
+from .models import Category, Tag, Post, Comment, FriendLink, SiteConfig
 from .serializers import (
     CategorySerializer, TagSerializer,
     PostListSerializer, PostDetailSerializer,
+    CommentSerializer, CommentCreateSerializer,
+    FriendLinkSerializer, SiteConfigSerializer,
 )
 
 
@@ -90,3 +92,47 @@ class ArchiveView(generics.ListAPIView):
                 })
 
         return Response(archives)
+
+
+class PostCommentListView(generics.ListAPIView):
+    """GET /api/posts/{slug}/comments/ - returns approved comments for a post"""
+
+    serializer_class = CommentSerializer
+    permission_classes = [permissions.AllowAny]
+    pagination_class = None
+
+    def get_queryset(self):
+        return Comment.objects.filter(
+            post__slug=self.kwargs["slug"],
+            is_approved=True,
+            parent=None,  # Only top-level; replies nested via serializer
+        ).select_related("user")
+
+
+class PostCommentCreateView(generics.CreateAPIView):
+    """POST /api/posts/{slug}/comments/ - submit a new comment (pending moderation)"""
+
+    serializer_class = CommentCreateSerializer
+    permission_classes = [permissions.AllowAny]
+
+    def perform_create(self, serializer):
+        post = Post.objects.get(slug=self.kwargs["slug"])
+        user = self.request.user if self.request.user.is_authenticated else None
+        # Admin comments are auto-approved
+        is_approved = bool(user and user.role == "admin")
+        serializer.save(post=post, user=user, is_approved=is_approved)
+
+
+class FriendLinkListView(generics.ListAPIView):
+    serializer_class = FriendLinkSerializer
+    permission_classes = [permissions.AllowAny]
+    pagination_class = None
+    queryset = FriendLink.objects.filter(is_active=True)
+
+
+class SiteConfigView(generics.RetrieveAPIView):
+    serializer_class = SiteConfigSerializer
+    permission_classes = [permissions.AllowAny]
+
+    def get_object(self):
+        return SiteConfig.get_instance()

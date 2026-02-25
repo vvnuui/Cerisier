@@ -83,3 +83,78 @@ class Post(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class Comment(models.Model):
+    post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name="comments")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="comments",
+    )
+    # For anonymous comments
+    nickname = models.CharField(max_length=50, blank=True, default="")
+    email = models.EmailField(blank=True, default="")
+
+    content = models.TextField()
+    parent = models.ForeignKey(
+        "self",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="replies",
+    )
+    is_approved = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at"]
+
+    def __str__(self):
+        name = self.user.username if self.user else self.nickname
+        return f"{name} on {self.post.title}"
+
+
+class FriendLink(models.Model):
+    name = models.CharField(max_length=100)
+    url = models.URLField()
+    description = models.CharField(max_length=200, blank=True, default="")
+    logo = models.URLField(blank=True, default="")
+    sort_order = models.IntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["sort_order"]
+
+    def __str__(self):
+        return self.name
+
+
+class SiteConfig(models.Model):
+    """Singleton model for site-wide settings"""
+
+    site_name = models.CharField(max_length=100, default="Cerisier")
+    site_description = models.TextField(blank=True, default="")
+    site_logo = models.ImageField(upload_to="site/", blank=True)
+    github_url = models.URLField(blank=True, default="")
+    email = models.EmailField(blank=True, default="")
+
+    class Meta:
+        verbose_name = "Site Config"
+        verbose_name_plural = "Site Config"
+
+    def __str__(self):
+        return self.site_name
+
+    def save(self, *args, **kwargs):
+        # Enforce singleton: always use pk=1
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def get_instance(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
