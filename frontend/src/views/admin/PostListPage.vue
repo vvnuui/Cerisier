@@ -209,6 +209,7 @@ async function fetchPosts() {
   try {
     const params: Record<string, unknown> = {
       page: currentPage.value,
+      page_size: pageSize.value,
     }
     if (filters.status) params.status = filters.status
     if (filters.search) params.search = filters.search

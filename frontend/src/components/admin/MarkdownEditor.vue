@@ -6,6 +6,7 @@
 import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import Vditor from 'vditor'
 import 'vditor/dist/index.css'
+import { ElMessage } from 'element-plus'
 import { adminApi } from '@/api/admin'
 
 const props = withDefaults(defineProps<{
@@ -21,6 +22,7 @@ const emit = defineEmits<{
 
 const editorRef = ref<HTMLDivElement>()
 let vditor: Vditor | null = null
+let vditorReady = false
 
 onMounted(() => {
   if (!editorRef.value) return
@@ -71,7 +73,7 @@ onMounted(() => {
               vditor.insertValue(`![${filename}](${url})`)
             }
           }).catch(() => {
-            // Upload failed silently - user can retry
+            ElMessage.error('Image upload failed')
           })
         }
         return null
@@ -79,7 +81,7 @@ onMounted(() => {
       accept: 'image/*',
     },
     after: () => {
-      // Set initial value after Vditor is ready
+      vditorReady = true
       if (props.modelValue && vditor) {
         vditor.setValue(props.modelValue)
       }
@@ -98,7 +100,7 @@ onBeforeUnmount(() => {
 })
 
 watch(() => props.modelValue, (newVal) => {
-  if (vditor && newVal !== vditor.getValue()) {
+  if (vditor && vditorReady && newVal !== vditor.getValue()) {
     vditor.setValue(newVal)
   }
 })

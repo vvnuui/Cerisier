@@ -227,13 +227,14 @@ const form = reactive({
 
 // Slug generation from title
 function generateSlug(title: string): string {
-  return title
+  const slug = title
     .toLowerCase()
     .trim()
     .replace(/[^\w\s-]/g, '')
     .replace(/\s+/g, '-')
     .replace(/-+/g, '-')
     .replace(/^-+|-+$/g, '')
+  return slug || `post-${Date.now()}`
 }
 
 function handleTitleChange() {
@@ -284,9 +285,9 @@ async function handleSave(status?: 'draft' | 'published') {
       await adminApi.updatePost(postId.value, payload)
       ElMessage.success('Post updated successfully')
     } else {
-      await adminApi.createPost(payload)
+      const created = await adminApi.createPost(payload)
       ElMessage.success('Post created successfully')
-      router.push('/admin/posts')
+      router.push(`/admin/posts/edit/${created.data.id}`)
     }
   } catch {
     ElMessage.error(isEdit.value ? 'Failed to update post' : 'Failed to create post')
