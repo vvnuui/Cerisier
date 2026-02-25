@@ -9,7 +9,7 @@ redis==5.2.1
 gunicorn==23.0.0
 Pillow==11.1.0
 python-decouple==3.8
-akshare==1.15.59
+akshare>=1.16.72
 openai==1.60.0
 pandas==2.2.3
 numpy==2.2.2
