@@ -1,0 +1,95 @@
+services:
+  postgres:
+    image: timescale/timescaledb:latest-pg16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    deploy:
+      resources:
+        limits:
+          memory: 400M
+          cpus: "0.5"
+    command: >
+      postgres
+        -c shared_buffers=256MB
+        -c work_mem=4MB
+        -c effective_cache_size=512MB
+        -c max_connections=50
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --maxmemory 50mb --maxmemory-policy allkeys-lru
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+          cpus: "0.1"
+
+  django:
+    build:
+      context: .
+      dockerfile: docker/django/Dockerfile
+    env_file: .env
+    depends_on:
+      - postgres
+      - redis
+    deploy:
+      resources:
+        limits:
+          memory: 300M
+          cpus: "0.5"
+
+  celery:
+    build:
+      context: .
+      dockerfile: docker/django/Dockerfile
+    command: celery -A config worker -l info --pool=solo -c 1
+    env_file: .env
+    depends_on:
+      - postgres
+      - redis
+    deploy:
+      resources:
+        limits:
+          memory: 200M
+          cpus: "0.5"
+
+  celery-beat:
+    build:
+      context: .
+      dockerfile: docker/django/Dockerfile
+    command: celery -A config beat -l info
+    env_file: .env
+    depends_on:
+      - postgres
+      - redis
+    deploy:
+      resources:
+        limits:
+          memory: 100M
+          cpus: "0.1"
+
+  nginx:
+    build:
+      context: .
+      dockerfile: docker/nginx/Dockerfile
+    ports:
+      - "80:80"
+    volumes:
+      - frontend_dist:/var/www/frontend
+      - media_files:/var/www/media
+    depends_on:
+      - django
+    deploy:
+      resources:
+        limits:
+          memory: 50M
+          cpus: "0.1"
+
+volumes:
+  postgres_data:
+  frontend_dist:
+  media_files:
