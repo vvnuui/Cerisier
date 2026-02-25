@@ -92,7 +92,7 @@
                 </template>
               </el-table-column>
             </el-table>
-            <div v-if="stats.recent_comments.length === 0" class="empty-comments">
+            <div v-if="!stats.recent_comments?.length" class="empty-comments">
               No recent comments.
             </div>
           </div>
@@ -120,16 +120,16 @@ import { adminApi, type DashboardStats } from '@/api/admin'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
 import { LineChart } from 'echarts/charts'
-import { GridComponent, TooltipComponent, TitleComponent } from 'echarts/components'
+import { GridComponent, TooltipComponent, LegendComponent } from 'echarts/components'
 import VChart from 'vue-echarts'
 import type { ComposeOption } from 'echarts/core'
 import type { LineSeriesOption } from 'echarts/charts'
-import type { GridComponentOption, TooltipComponentOption, TitleComponentOption } from 'echarts/components'
+import type { GridComponentOption, TooltipComponentOption, LegendComponentOption } from 'echarts/components'
 
-use([CanvasRenderer, LineChart, GridComponent, TooltipComponent, TitleComponent])
+use([CanvasRenderer, LineChart, GridComponent, TooltipComponent, LegendComponent])
 
 type ECOption = ComposeOption<
-  LineSeriesOption | GridComponentOption | TooltipComponentOption | TitleComponentOption
+  LineSeriesOption | GridComponentOption | TooltipComponentOption | LegendComponentOption
 >
 
 // State
@@ -175,9 +175,10 @@ const statCards = computed(() => {
 // Chart option
 const chartOption = computed<ECOption>(() => {
   const months = stats.value?.posts_by_month.map((p) => {
-    const [year, month] = p.month.split('-')
-    const date = new Date(Number(year), Number(month) - 1)
-    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short' })
+    const parts = p.month.split('-')
+    if (parts.length < 2) return p.month
+    const date = new Date(Number(parts[0]), Number(parts[1]) - 1)
+    return isNaN(date.getTime()) ? p.month : date.toLocaleDateString('en-US', { year: 'numeric', month: 'short' })
   }) ?? []
   const counts = stats.value?.posts_by_month.map((p) => p.count) ?? []
 
