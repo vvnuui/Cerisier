@@ -4,10 +4,15 @@ import 'element-plus/dist/index.css'
 import App from './App.vue'
 import router from './router'
 import pinia from './stores'
+import { useAuthStore } from './stores/auth'
 import './styles/main.css'
 
 const app = createApp(App)
 app.use(pinia)
-app.use(router)
 app.use(ElementPlus)
-app.mount('#app')
+
+const authStore = useAuthStore()
+authStore.init().then(() => {
+  app.use(router)
+  app.mount('#app')
+})

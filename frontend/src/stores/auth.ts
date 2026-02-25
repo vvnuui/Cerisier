@@ -36,11 +36,14 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem('refresh_token')
   }
 
+  const initialized = ref(false)
+
   async function init() {
     if (accessToken.value) {
       await fetchUser()
     }
+    initialized.value = true
   }
 
-  return { user, accessToken, refreshToken, isAuthenticated, isAdmin, login, logout, fetchUser, init }
+  return { user, accessToken, refreshToken, isAuthenticated, isAdmin, initialized, login, logout, fetchUser, init }
 })
