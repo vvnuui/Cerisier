@@ -145,7 +145,8 @@ function formatDate(dateString: string): string {
 async function handleApprove(comment: Comment) {
   try {
     await adminApi.approveComment(comment.id)
-    comment.is_approved = true
+    const idx = comments.value.findIndex(c => c.id === comment.id)
+    if (idx !== -1) comments.value[idx] = { ...comments.value[idx], is_approved: true }
     ElMessage.success('Comment approved successfully')
   } catch {
     ElMessage.error('Failed to approve comment')
@@ -156,6 +157,9 @@ async function handleDelete(id: number) {
   try {
     await adminApi.deleteComment(id)
     ElMessage.success('Comment deleted successfully')
+    if (comments.value.length === 1 && currentPage.value > 1) {
+      currentPage.value -= 1
+    }
     fetchComments()
   } catch {
     ElMessage.error('Failed to delete comment')

@@ -170,7 +170,11 @@ const form = ref({
 // Computed: parent options excludes the currently-editing category
 const parentOptions = computed(() => {
   if (!isEditing.value || !editingId.value) return categories.value
-  return categories.value.filter((c) => c.id !== editingId.value)
+  const id = editingId.value
+  const childIds = new Set(
+    categories.value.filter(c => c.parent === id).map(c => c.id)
+  )
+  return categories.value.filter(c => c.id !== id && !childIds.has(c.id))
 })
 
 // Get parent name by id
