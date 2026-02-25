@@ -26,4 +26,5 @@ urlpatterns = [
     path("admin/", include(admin_router.urls)),
     path("admin/site-config/", views_admin.AdminSiteConfigView.as_view(), name="admin-site-config"),
     path("admin/upload/", views_admin.ImageUploadView.as_view(), name="admin-upload"),
+    path("admin/dashboard/", views_admin.DashboardView.as_view(), name="admin-dashboard"),
 ]

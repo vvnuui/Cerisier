@@ -1,6 +1,10 @@
+from django.db import models
+from django.db.models import Sum
+from django.db.models.functions import TruncMonth
 from rest_framework import viewsets, generics, status
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.views import APIView
 from django.utils import timezone
 from apps.users.permissions import IsAdmin
 from .models import Category, Tag, Post, Comment, SiteConfig
@@ -85,3 +89,49 @@ class ImageUploadView(generics.CreateAPIView):
         path = default_storage.save(f"uploads/{file.name}", file)
         url = request.build_absolute_uri(f"/media/{path}")
         return Response({"url": url}, status=status.HTTP_201_CREATED)
+
+
+class DashboardView(APIView):
+    """GET /api/admin/dashboard/ - returns blog stats"""
+    permission_classes = [IsAdmin]
+
+    def get(self, request):
+        # Basic stats
+        total_posts = Post.objects.count()
+        published_posts = Post.objects.filter(status="published").count()
+        total_views = Post.objects.aggregate(total=Sum("view_count"))["total"] or 0
+        total_comments = Comment.objects.count()
+        pending_comments = Comment.objects.filter(is_approved=False).count()
+
+        # Posts by month (last 12 months)
+        posts_by_month = list(
+            Post.objects.filter(status="published")
+            .annotate(month=TruncMonth("published_at"))
+            .values("month")
+            .annotate(count=models.Count("id"))
+            .order_by("month")
+        )
+        # Convert to serializable format
+        posts_by_month = [
+            {"month": item["month"].strftime("%Y-%m") if item["month"] else None,
+             "count": item["count"]}
+            for item in posts_by_month
+        ]
+
+        # Recent comments (last 5)
+        recent_comments = list(
+            Comment.objects.select_related("post", "user")
+            .order_by("-created_at")[:5]
+            .values("id", "content", "nickname", "is_approved", "created_at",
+                    "post__title", "post__slug")
+        )
+
+        return Response({
+            "total_posts": total_posts,
+            "published_posts": published_posts,
+            "total_views": total_views,
+            "total_comments": total_comments,
+            "pending_comments": pending_comments,
+            "posts_by_month": posts_by_month,
+            "recent_comments": recent_comments,
+        })

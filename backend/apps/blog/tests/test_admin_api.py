@@ -191,3 +191,50 @@ class TestAdminCommentModeration:
         Comment.objects.create(post=post, nickname="B", email="b@t.com", content="Pending", is_approved=False)
         resp = client.get("/api/admin/comments/")
         assert resp.data["count"] == 2  # Admin sees all comments
+
+
+@pytest.mark.django_db
+class TestDashboardAPI:
+    def test_dashboard_returns_stats(self, admin_client):
+        client, user = admin_client
+        # Create some data
+        post = Post.objects.create(
+            title="Post 1", slug="post-1", content="c", content_markdown="c",
+            author=user, status="published", published_at=timezone.now(),
+            view_count=100,
+        )
+        Post.objects.create(
+            title="Draft", slug="draft", content="c", content_markdown="c",
+            author=user, status="draft",
+        )
+        Comment.objects.create(
+            post=post, nickname="A", email="a@t.com", content="Hello",
+            is_approved=True,
+        )
+        Comment.objects.create(
+            post=post, nickname="B", email="b@t.com", content="Pending",
+            is_approved=False,
+        )
+
+        resp = client.get("/api/admin/dashboard/")
+        assert resp.status_code == 200
+        assert resp.data["total_posts"] == 2
+        assert resp.data["published_posts"] == 1
+        assert resp.data["total_views"] == 100
+        assert resp.data["total_comments"] == 2
+        assert resp.data["pending_comments"] == 1
+        assert isinstance(resp.data["posts_by_month"], list)
+        assert isinstance(resp.data["recent_comments"], list)
+        assert len(resp.data["recent_comments"]) == 2
+
+    def test_dashboard_requires_admin(self):
+        client = APIClient()
+        resp = client.get("/api/admin/dashboard/")
+        assert resp.status_code in [401, 403]
+
+    def test_dashboard_empty(self, admin_client):
+        client, _ = admin_client
+        resp = client.get("/api/admin/dashboard/")
+        assert resp.status_code == 200
+        assert resp.data["total_posts"] == 0
+        assert resp.data["total_views"] == 0
