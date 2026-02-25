@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 from datetime import timedelta
+from celery.schedules import crontab
 from decouple import config, Csv
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -119,3 +120,35 @@ CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = "Asia/Shanghai"
+
+# Celery Beat Schedule
+CELERY_BEAT_SCHEDULE = {
+    "sync-stock-list-daily": {
+        "task": "quant.sync_stock_list",
+        "schedule": crontab(hour=9, minute=0),
+    },
+    "sync-daily-kline": {
+        "task": "quant.sync_daily_kline",
+        "schedule": crontab(hour=16, minute=0),
+    },
+    "sync-money-flow": {
+        "task": "quant.sync_money_flow",
+        "schedule": crontab(hour=16, minute=30),
+    },
+    "sync-margin-data": {
+        "task": "quant.sync_margin_data",
+        "schedule": crontab(hour=17, minute=0),
+    },
+    "sync-news-hourly": {
+        "task": "quant.sync_news",
+        "schedule": crontab(minute=0, hour="9-18"),
+    },
+    "sync-financial-reports-weekly": {
+        "task": "quant.sync_financial_reports",
+        "schedule": crontab(hour=3, minute=0, day_of_week=0),  # Sunday 3am
+    },
+    "validate-data-daily": {
+        "task": "quant.validate_data",
+        "schedule": crontab(hour=2, minute=0),
+    },
+}
