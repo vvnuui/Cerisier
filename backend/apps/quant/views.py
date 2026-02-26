@@ -1,5 +1,7 @@
 """DRF views for quant data and analysis APIs."""
 
+import logging
+
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import generics, status
 from rest_framework.filters import OrderingFilter, SearchFilter
@@ -7,6 +9,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.users.permissions import IsAdmin
+
+logger = logging.getLogger(__name__)
 
 from .models import FinancialReport, KlineData, MoneyFlow, NewsArticle, StockBasic
 from .serializers import (
@@ -18,6 +22,7 @@ from .serializers import (
     RecommendationFilterSerializer,
     StockAnalysisRequestSerializer,
     StockBasicSerializer,
+    StockCodeRequestSerializer,
 )
 
 
@@ -53,7 +58,15 @@ class KlineDataView(APIView):
     permission_classes = [IsAdmin]
 
     def get(self, request, code):
-        days = int(request.query_params.get("days", 120))
+        try:
+            days = int(request.query_params.get("days", 120))
+            if days < 1 or days > 1000:
+                raise ValueError
+        except (ValueError, TypeError):
+            return Response(
+                {"error": "days must be a positive integer (max 1000)"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         klines = KlineData.objects.filter(stock_id=code).order_by("-date")[:days]
         serializer = KlineDataSerializer(klines, many=True)
         return Response(serializer.data)
@@ -65,7 +78,15 @@ class MoneyFlowView(APIView):
     permission_classes = [IsAdmin]
 
     def get(self, request, code):
-        days = int(request.query_params.get("days", 20))
+        try:
+            days = int(request.query_params.get("days", 20))
+            if days < 1 or days > 365:
+                raise ValueError
+        except (ValueError, TypeError):
+            return Response(
+                {"error": "days must be a positive integer (max 365)"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         flows = MoneyFlow.objects.filter(stock_id=code).order_by("-date")[:days]
         serializer = MoneyFlowSerializer(flows, many=True)
         return Response(serializer.data)
@@ -88,7 +109,15 @@ class StockNewsView(APIView):
     permission_classes = [IsAdmin]
 
     def get(self, request, code):
-        limit = int(request.query_params.get("limit", 20))
+        try:
+            limit = int(request.query_params.get("limit", 20))
+            if limit < 1 or limit > 100:
+                raise ValueError
+        except (ValueError, TypeError):
+            return Response(
+                {"error": "limit must be a positive integer (max 100)"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         articles = NewsArticle.objects.filter(stock_id=code).order_by("-published_at")[
             :limit
         ]
@@ -174,12 +203,11 @@ class RecommendationsView(APIView):
         scorer = MultiFactorScorer(style=style_map[style])
         signal_gen = SignalGenerator()
 
-        stocks = StockBasic.objects.filter(is_active=True).values_list(
-            "code", flat=True
-        )
+        stocks = StockBasic.objects.filter(is_active=True)
+        stock_map = {s.code: s for s in stocks}
 
         results = []
-        for code in stocks:
+        for code, stock in list(stock_map.items())[:200]:
             try:
                 score_result = scorer.score(code)
                 if score_result["final_score"] < min_score:
@@ -188,7 +216,6 @@ class RecommendationsView(APIView):
                     continue
 
                 signal = signal_gen.generate(code, score_result)
-                stock = StockBasic.objects.get(code=code)
 
                 results.append(
                     {
@@ -206,6 +233,7 @@ class RecommendationsView(APIView):
                     }
                 )
             except Exception:
+                logger.warning("Analysis failed for %s", code, exc_info=True)
                 continue
 
         results.sort(key=lambda x: x["score"], reverse=True)
@@ -227,12 +255,9 @@ class AIReportView(APIView):
     permission_classes = [IsAdmin]
 
     def post(self, request):
-        stock_code = request.data.get("stock_code")
-        if not stock_code:
-            return Response(
-                {"error": "stock_code is required"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        serializer = StockCodeRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        stock_code = serializer.validated_data["stock_code"]
 
         from .analyzers import AIAnalyzer, MultiFactorScorer
 
@@ -297,14 +322,13 @@ class FactorWeightConfigView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Note: In production, this would persist to DB or cache.
-        # For now, return the validated config (read-only in practice).
         return Response(
             {
                 "style": style,
                 "weights": weights,
-                "message": "Weight configuration validated (runtime update not persisted)",
-            }
+                "message": "Weight configuration validated but persistence not yet implemented",
+            },
+            status=status.HTTP_501_NOT_IMPLEMENTED,
         )
 
 

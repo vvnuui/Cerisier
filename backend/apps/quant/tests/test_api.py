@@ -270,6 +270,14 @@ class TestKlineData:
         assert response.status_code == http_status.HTTP_200_OK
         assert len(response.data) == 0
 
+    def test_kline_data_invalid_days(self, api_client, stock):
+        response = api_client.get("/api/quant/stocks/000001/kline/", {"days": "abc"})
+        assert response.status_code == http_status.HTTP_400_BAD_REQUEST
+
+    def test_kline_data_days_out_of_range(self, api_client, stock):
+        response = api_client.get("/api/quant/stocks/000001/kline/", {"days": "0"})
+        assert response.status_code == http_status.HTTP_400_BAD_REQUEST
+
 
 class TestMoneyFlowData:
     """Tests for GET /api/quant/stocks/{code}/money-flow/"""
@@ -285,6 +293,10 @@ class TestMoneyFlowData:
         )
         assert response.status_code == http_status.HTTP_200_OK
         assert len(response.data) == 2
+
+    def test_money_flow_invalid_days(self, api_client, stock):
+        response = api_client.get("/api/quant/stocks/000001/money-flow/", {"days": "x"})
+        assert response.status_code == http_status.HTTP_400_BAD_REQUEST
 
 
 class TestFinancialReports:
@@ -313,6 +325,10 @@ class TestStockNews:
         response = api_client.get("/api/quant/stocks/000001/news/", {"limit": "1"})
         assert response.status_code == http_status.HTTP_200_OK
         assert len(response.data) == 1
+
+    def test_stock_news_invalid_limit(self, api_client, stock):
+        response = api_client.get("/api/quant/stocks/000001/news/", {"limit": "abc"})
+        assert response.status_code == http_status.HTTP_400_BAD_REQUEST
 
 
 # ===========================================================================
@@ -479,7 +495,7 @@ class TestAIReport:
             format="json",
         )
         assert response.status_code == http_status.HTTP_400_BAD_REQUEST
-        assert response.data["error"] == "stock_code is required"
+        assert "stock_code" in response.data
 
 
 # ===========================================================================
@@ -519,7 +535,7 @@ class TestFactorWeights:
             },
             format="json",
         )
-        assert response.status_code == http_status.HTTP_200_OK
+        assert response.status_code == http_status.HTTP_501_NOT_IMPLEMENTED
         assert response.data["style"] == "swing"
         assert "weights" in response.data
 

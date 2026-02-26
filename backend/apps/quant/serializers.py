@@ -63,6 +63,12 @@ class NewsArticleSerializer(serializers.ModelSerializer):
         fields = ["id", "title", "source", "url", "sentiment_score", "published_at"]
 
 
+class StockCodeRequestSerializer(serializers.Serializer):
+    """Request serializer requiring only stock_code."""
+
+    stock_code = serializers.CharField(max_length=10)
+
+
 class StockAnalysisRequestSerializer(serializers.Serializer):
     """Request serializer for stock analysis."""
 

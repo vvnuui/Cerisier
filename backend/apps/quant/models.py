@@ -17,6 +17,7 @@ class StockBasic(models.Model):
     class Meta:
         verbose_name = "股票基本信息"
         verbose_name_plural = "股票基本信息"
+        ordering = ["code"]
 
     def __str__(self):
         return f"{self.code} - {self.name}"
