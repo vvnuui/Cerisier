@@ -286,3 +286,123 @@ def validate_data():
         "active_stocks": active_stocks,
         "stocks_with_recent_data": stocks_with_recent,
     }
+
+
+# ---------------------------------------------------------------------------
+# Analysis pipeline tasks
+# ---------------------------------------------------------------------------
+
+
+@shared_task(name="quant.run_analysis_pipeline")
+def run_analysis_pipeline(style: str = "swing"):
+    """Run the full analysis pipeline for all active stocks.
+
+    Steps:
+    1. Get all active stocks
+    2. For each stock, run MultiFactorScorer
+    3. For each scored stock, generate TradingSignal
+    4. Filter top picks (BUY signals sorted by score descending)
+    5. Log and return results summary
+
+    Args:
+        style: Trading style string ("ultra_short", "swing", "mid_long")
+    """
+    from .analyzers import MultiFactorScorer, SignalGenerator, TradingStyle
+
+    # Parse style string to enum
+    style_map = {
+        "ultra_short": TradingStyle.ULTRA_SHORT,
+        "swing": TradingStyle.SWING,
+        "mid_long": TradingStyle.MID_LONG,
+    }
+    trading_style = style_map.get(style, TradingStyle.SWING)
+
+    scorer = MultiFactorScorer(style=trading_style)
+    signal_gen = SignalGenerator()
+
+    active_stocks = list(
+        StockBasic.objects.filter(is_active=True).values_list("code", flat=True)
+    )
+
+    results = []
+    errors = 0
+
+    for code in active_stocks:
+        try:
+            score_result = scorer.score(code)
+            signal = signal_gen.generate(code, score_result)
+            results.append({
+                "stock_code": code,
+                "score": score_result["final_score"],
+                "signal": score_result["signal"].value,
+                "confidence": score_result["confidence"],
+                "entry_price": signal.entry_price,
+                "stop_loss": signal.stop_loss,
+                "take_profit": signal.take_profit,
+                "position_pct": signal.position_pct,
+            })
+        except Exception as e:
+            logger.error(f"Analysis failed for {code}: {e}")
+            errors += 1
+
+    # Sort by score descending
+    results.sort(key=lambda x: x["score"], reverse=True)
+
+    # Filter top picks (BUY signals)
+    buy_signals = [r for r in results if r["signal"] == "BUY"]
+    sell_signals = [r for r in results if r["signal"] == "SELL"]
+
+    logger.info(
+        f"Analysis pipeline ({style}): "
+        f"{len(results)} stocks analyzed, "
+        f"{len(buy_signals)} BUY, {len(sell_signals)} SELL, "
+        f"{errors} errors"
+    )
+
+    return {
+        "style": style,
+        "total_analyzed": len(results),
+        "buy_count": len(buy_signals),
+        "sell_count": len(sell_signals),
+        "hold_count": len(results) - len(buy_signals) - len(sell_signals),
+        "errors": errors,
+        "top_picks": buy_signals[:10],  # Top 10 BUY signals
+        "top_sells": sell_signals[:10],  # Top 10 SELL signals
+    }
+
+
+@shared_task(name="quant.analyze_single_stock")
+def analyze_single_stock(stock_code: str, style: str = "swing"):
+    """Run analysis for a single stock.
+
+    Useful for on-demand analysis via API.
+    """
+    from .analyzers import MultiFactorScorer, SignalGenerator, TradingStyle
+
+    style_map = {
+        "ultra_short": TradingStyle.ULTRA_SHORT,
+        "swing": TradingStyle.SWING,
+        "mid_long": TradingStyle.MID_LONG,
+    }
+    trading_style = style_map.get(style, TradingStyle.SWING)
+
+    scorer = MultiFactorScorer(style=trading_style)
+    signal_gen = SignalGenerator()
+
+    score_result = scorer.score(stock_code)
+    signal = signal_gen.generate(stock_code, score_result)
+
+    return {
+        "stock_code": stock_code,
+        "style": style,
+        "score": score_result["final_score"],
+        "signal": score_result["signal"].value,
+        "confidence": score_result["confidence"],
+        "explanation": score_result["explanation"],
+        "entry_price": signal.entry_price,
+        "stop_loss": signal.stop_loss,
+        "take_profit": signal.take_profit,
+        "position_pct": signal.position_pct,
+        "risk_reward_ratio": signal.risk_reward_ratio,
+        "component_scores": score_result["component_scores"],
+    }

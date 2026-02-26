@@ -151,4 +151,9 @@ CELERY_BEAT_SCHEDULE = {
         "task": "quant.validate_data",
         "schedule": crontab(hour=2, minute=0),
     },
+    "run-analysis-pipeline": {
+        "task": "quant.run_analysis_pipeline",
+        "schedule": crontab(hour=17, minute=30),
+        "kwargs": {"style": "swing"},
+    },
 }
