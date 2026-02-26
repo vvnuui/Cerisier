@@ -157,3 +157,8 @@ CELERY_BEAT_SCHEDULE = {
         "kwargs": {"style": "swing"},
     },
 }
+
+# AI Service
+DEEPSEEK_API_KEY = config("DEEPSEEK_API_KEY", default="")
+OPENAI_API_KEY = config("OPENAI_API_KEY", default="")
+AI_DAILY_BUDGET = config("AI_DAILY_BUDGET", default=5.0, cast=float)
