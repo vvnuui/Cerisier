@@ -1,6 +1,8 @@
 """Sector rotation analysis: sector momentum, sector flow, relative strength."""
 
 import logging
+from itertools import groupby
+from operator import attrgetter
 
 from .base import AnalyzerBase
 from .types import AnalysisResult, Signal
@@ -128,27 +130,14 @@ class SectorRotationAnalyzer(AnalyzerBase):
         Only includes stocks with at least 10 days of data.
         Uses a single batch query to avoid N+1 performance issues.
         """
-        from django.db.models import Max, Min, Count
-
-        # Determine the date cutoff via a single aggregate query.
-        latest_date_row = (
-            KlineData.objects.filter(stock_id__in=stock_codes)
-            .order_by("-date")
-            .values("date")
-            .first()
-        )
-        if not latest_date_row:
-            return {}
-
-        # Fetch all klines for the sector in one query.
+        # Fetch all klines for the sector in one query, ordered for groupby.
         all_klines = list(
             KlineData.objects.filter(stock_id__in=stock_codes)
             .order_by("stock_id", "-date")
         )
 
-        # Group by stock and compute returns.
-        from itertools import groupby
-        from operator import attrgetter
+        if not all_klines:
+            return {}
 
         returns = {}
         for code, group in groupby(all_klines, key=attrgetter("stock_id")):
@@ -202,18 +191,15 @@ class SectorRotationAnalyzer(AnalyzerBase):
 
         Uses a single batch query to avoid N+1 performance issues.
         """
-        from django.db.models import Avg
-
         # Batch query: fetch all money flow records for the sector at once.
-        all_flows = MoneyFlow.objects.filter(stock_id__in=stock_codes).order_by(
-            "stock_id", "-date"
+        all_flows = list(
+            MoneyFlow.objects.filter(stock_id__in=stock_codes).order_by(
+                "stock_id", "-date"
+            )
         )
 
         total_flow = 0.0
         count = 0
-        from itertools import groupby
-        from operator import attrgetter
-
         for code, group in groupby(all_flows, key=attrgetter("stock_id")):
             for f in list(group)[: self.lookback_days]:
                 total_flow += float(f.main_net)
