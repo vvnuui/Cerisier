@@ -6,6 +6,7 @@ from .money_flow import MoneyFlowAnalyzer
 from .scorer import MultiFactorScorer
 from .sector import SectorRotationAnalyzer
 from .sentiment import SentimentAnalyzer
+from .signal_generator import SignalGenerator, TradingSignal
 from .technical import TechnicalAnalyzer
 from .types import AnalysisResult, Signal, TradingStyle
 
@@ -22,6 +23,8 @@ __all__ = [
     "SectorRotationAnalyzer",
     "SentimentAnalyzer",
     "Signal",
+    "SignalGenerator",
     "TechnicalAnalyzer",
+    "TradingSignal",
     "TradingStyle",
 ]
