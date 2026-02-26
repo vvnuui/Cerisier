@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 
 
@@ -190,3 +191,169 @@ class NewsArticle(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class Portfolio(models.Model):
+    """Paper trading portfolio (模拟交易组合)."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="portfolios",
+        verbose_name="用户",
+    )
+    name = models.CharField("组合名称", max_length=100)
+    initial_capital = models.DecimalField(
+        "初始资金", max_digits=16, decimal_places=2, default=1000000
+    )
+    cash_balance = models.DecimalField(
+        "现金余额", max_digits=16, decimal_places=2, default=1000000
+    )
+    is_active = models.BooleanField("是否活跃", default=True)
+    created_at = models.DateTimeField("创建时间", auto_now_add=True)
+    updated_at = models.DateTimeField("更新时间", auto_now=True)
+
+    class Meta:
+        verbose_name = "模拟组合"
+        verbose_name_plural = "模拟组合"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.name} ({self.user})"
+
+
+class Position(models.Model):
+    """Current stock position in a portfolio (持仓)."""
+
+    portfolio = models.ForeignKey(
+        Portfolio,
+        on_delete=models.CASCADE,
+        related_name="positions",
+        verbose_name="组合",
+    )
+    stock = models.ForeignKey(
+        StockBasic,
+        on_delete=models.CASCADE,
+        related_name="positions",
+        verbose_name="股票",
+    )
+    shares = models.IntegerField("持仓数量", default=0)
+    avg_cost = models.DecimalField(
+        "平均成本", max_digits=12, decimal_places=4, default=0
+    )
+    current_price = models.DecimalField(
+        "当前价格", max_digits=12, decimal_places=4, default=0
+    )
+    updated_at = models.DateTimeField("更新时间", auto_now=True)
+
+    class Meta:
+        verbose_name = "持仓"
+        verbose_name_plural = "持仓"
+        unique_together = [["portfolio", "stock"]]
+
+    def __str__(self):
+        return f"{self.portfolio.name} - {self.stock_id} x {self.shares}"
+
+    @property
+    def market_value(self):
+        """Current market value of position."""
+        return self.shares * self.current_price
+
+    @property
+    def cost_basis(self):
+        """Total cost basis."""
+        return self.shares * self.avg_cost
+
+    @property
+    def unrealized_pnl(self):
+        """Unrealized profit/loss."""
+        return self.market_value - self.cost_basis
+
+    @property
+    def unrealized_pnl_pct(self):
+        """Unrealized P&L percentage."""
+        if self.cost_basis == 0:
+            return 0
+        return float((self.unrealized_pnl / self.cost_basis) * 100)
+
+
+class Trade(models.Model):
+    """Trade execution record (交易记录)."""
+
+    BUY = "BUY"
+    SELL = "SELL"
+    TRADE_TYPES = [
+        (BUY, "买入"),
+        (SELL, "卖出"),
+    ]
+
+    portfolio = models.ForeignKey(
+        Portfolio,
+        on_delete=models.CASCADE,
+        related_name="trades",
+        verbose_name="组合",
+    )
+    stock = models.ForeignKey(
+        StockBasic,
+        on_delete=models.CASCADE,
+        related_name="trades",
+        verbose_name="股票",
+    )
+    trade_type = models.CharField(
+        "交易类型", max_length=4, choices=TRADE_TYPES
+    )
+    shares = models.IntegerField("交易数量")
+    price = models.DecimalField("成交价格", max_digits=12, decimal_places=4)
+    amount = models.DecimalField("成交金额", max_digits=16, decimal_places=2)
+    commission = models.DecimalField(
+        "手续费", max_digits=10, decimal_places=2, default=0
+    )
+    reason = models.CharField("交易理由", max_length=200, blank=True)
+    executed_at = models.DateTimeField("执行时间", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "交易记录"
+        verbose_name_plural = "交易记录"
+        ordering = ["-executed_at"]
+
+    def __str__(self):
+        return f"{self.trade_type} {self.stock_id} x {self.shares} @ {self.price}"
+
+
+class PerformanceMetric(models.Model):
+    """Daily performance metrics for a portfolio (绩效指标)."""
+
+    portfolio = models.ForeignKey(
+        Portfolio,
+        on_delete=models.CASCADE,
+        related_name="performance_metrics",
+        verbose_name="组合",
+    )
+    date = models.DateField("日期")
+    total_value = models.DecimalField(
+        "总资产", max_digits=16, decimal_places=2
+    )
+    daily_return = models.DecimalField(
+        "日收益率(%)", max_digits=8, decimal_places=4, default=0
+    )
+    cumulative_return = models.DecimalField(
+        "累计收益率(%)", max_digits=10, decimal_places=4, default=0
+    )
+    max_drawdown = models.DecimalField(
+        "最大回撤(%)", max_digits=8, decimal_places=4, default=0
+    )
+    sharpe_ratio = models.DecimalField(
+        "夏普比率", max_digits=8, decimal_places=4, null=True, blank=True
+    )
+    win_rate = models.DecimalField(
+        "胜率(%)", max_digits=8, decimal_places=4, null=True, blank=True
+    )
+
+    class Meta:
+        verbose_name = "绩效指标"
+        verbose_name_plural = "绩效指标"
+        unique_together = [["portfolio", "date"]]
+        ordering = ["-date"]
+
+    def __str__(self):
+        return f"{self.portfolio.name} {self.date} 绩效"
