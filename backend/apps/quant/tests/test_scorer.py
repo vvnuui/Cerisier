@@ -78,7 +78,7 @@ class TestScorerUltraShortWeights:
 
 class TestScorerMidLongWeights:
     def test_scorer_mid_long_weights(self):
-        """MID_LONG should use all 9 analyzers."""
+        """MID_LONG should use all 10 analyzers (including ai)."""
         weights = MultiFactorScorer.STYLE_WEIGHTS[TradingStyle.MID_LONG]
         expected_keys = {
             "technical",
@@ -90,6 +90,7 @@ class TestScorerMidLongWeights:
             "macro",
             "behavior_finance",
             "game_theory",
+            "ai",
         }
         assert set(weights.keys()) == expected_keys
 

@@ -2,6 +2,7 @@
 
 import logging
 
+from .ai_analyzer import AIAnalyzer
 from .chip import ChipAnalyzer
 from .experimental import BehaviorFinanceAnalyzer, GameTheoryAnalyzer, MacroAnalyzer
 from .fundamental import FundamentalAnalyzer
@@ -20,11 +21,11 @@ class MultiFactorScorer:
     Each TradingStyle uses different weights:
     - ULTRA_SHORT: technical(40%), money_flow(25%), chip(15%), sentiment(10%),
                    game_theory(5%), behavior_finance(5%)
-    - SWING: technical(25%), fundamental(15%), money_flow(20%), chip(15%),
-             sentiment(10%), sector_rotation(10%), behavior_finance(5%)
-    - MID_LONG: technical(10%), fundamental(30%), money_flow(10%), chip(10%),
-                sentiment(10%), sector_rotation(15%), macro(5%), behavior_finance(5%),
-                game_theory(5%)
+    - SWING: technical(25%), fundamental(10%), money_flow(15%), chip(15%),
+             sentiment(10%), sector_rotation(10%), behavior_finance(5%), ai(10%)
+    - MID_LONG: technical(10%), fundamental(25%), money_flow(10%), chip(10%),
+                sentiment(5%), sector_rotation(10%), macro(5%), behavior_finance(5%),
+                game_theory(5%), ai(15%)
     """
 
     STYLE_WEIGHTS = {
@@ -38,23 +39,25 @@ class MultiFactorScorer:
         },
         TradingStyle.SWING: {
             "technical": 0.25,
-            "fundamental": 0.15,
-            "money_flow": 0.20,
+            "fundamental": 0.10,
+            "money_flow": 0.15,
             "chip": 0.15,
             "sentiment": 0.10,
             "sector_rotation": 0.10,
             "behavior_finance": 0.05,
+            "ai": 0.10,
         },
         TradingStyle.MID_LONG: {
             "technical": 0.10,
-            "fundamental": 0.30,
+            "fundamental": 0.25,
             "money_flow": 0.10,
             "chip": 0.10,
-            "sentiment": 0.10,
-            "sector_rotation": 0.15,
+            "sentiment": 0.05,
+            "sector_rotation": 0.10,
             "macro": 0.05,
             "behavior_finance": 0.05,
             "game_theory": 0.05,
+            "ai": 0.15,
         },
     }
 
@@ -73,6 +76,7 @@ class MultiFactorScorer:
         "game_theory": GameTheoryAnalyzer,
         "behavior_finance": BehaviorFinanceAnalyzer,
         "macro": MacroAnalyzer,
+        "ai": AIAnalyzer,
     }
 
     def _build_analyzers(self) -> dict:

@@ -1,3 +1,4 @@
+from .ai_analyzer import AIAnalyzer
 from .base import AnalyzerBase
 from .chip import ChipAnalyzer
 from .experimental import BehaviorFinanceAnalyzer, GameTheoryAnalyzer, MacroAnalyzer
@@ -11,6 +12,7 @@ from .technical import TechnicalAnalyzer
 from .types import AnalysisResult, Signal, TradingStyle
 
 __all__ = [
+    "AIAnalyzer",
     "AnalyzerBase",
     "AnalysisResult",
     "BehaviorFinanceAnalyzer",
