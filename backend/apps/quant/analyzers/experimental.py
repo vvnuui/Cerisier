@@ -1,7 +1,6 @@
 """Experimental / stub analyzers: game theory, behavior finance, macro."""
 
 import logging
-from decimal import Decimal
 
 from .base import AnalyzerBase
 from .types import AnalysisResult, Signal

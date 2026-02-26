@@ -1,7 +1,6 @@
 """Sector rotation analysis: sector momentum, sector flow, relative strength."""
 
 import logging
-from decimal import Decimal
 
 from .base import AnalyzerBase
 from .types import AnalysisResult, Signal
@@ -127,16 +126,35 @@ class SectorRotationAnalyzer(AnalyzerBase):
 
         Returns dict of {stock_code: return_pct}.
         Only includes stocks with at least 10 days of data.
+        Uses a single batch query to avoid N+1 performance issues.
         """
+        from django.db.models import Max, Min, Count
+
+        # Determine the date cutoff via a single aggregate query.
+        latest_date_row = (
+            KlineData.objects.filter(stock_id__in=stock_codes)
+            .order_by("-date")
+            .values("date")
+            .first()
+        )
+        if not latest_date_row:
+            return {}
+
+        # Fetch all klines for the sector in one query.
+        all_klines = list(
+            KlineData.objects.filter(stock_id__in=stock_codes)
+            .order_by("stock_id", "-date")
+        )
+
+        # Group by stock and compute returns.
+        from itertools import groupby
+        from operator import attrgetter
+
         returns = {}
-        for code in stock_codes:
-            klines = list(
-                KlineData.objects.filter(stock_id=code)
-                .order_by("-date")[: self.lookback_days]
-            )
+        for code, group in groupby(all_klines, key=attrgetter("stock_id")):
+            klines = list(group)[: self.lookback_days]
             if len(klines) < 10:
                 continue
-            # klines are newest-first from the query.
             newest = float(klines[0].close)
             oldest = float(klines[-1].close)
             if oldest != 0:
@@ -180,15 +198,24 @@ class SectorRotationAnalyzer(AnalyzerBase):
     # ------------------------------------------------------------------
 
     def _score_sector_flow(self, stock_codes: list) -> float:
-        """Sum of main_net for all stocks in the sector over lookback period."""
+        """Sum of main_net for all stocks in the sector over lookback period.
+
+        Uses a single batch query to avoid N+1 performance issues.
+        """
+        from django.db.models import Avg
+
+        # Batch query: fetch all money flow records for the sector at once.
+        all_flows = MoneyFlow.objects.filter(stock_id__in=stock_codes).order_by(
+            "stock_id", "-date"
+        )
+
         total_flow = 0.0
         count = 0
-        for code in stock_codes:
-            flows = list(
-                MoneyFlow.objects.filter(stock_id=code)
-                .order_by("-date")[: self.lookback_days]
-            )
-            for f in flows:
+        from itertools import groupby
+        from operator import attrgetter
+
+        for code, group in groupby(all_flows, key=attrgetter("stock_id")):
+            for f in list(group)[: self.lookback_days]:
                 total_flow += float(f.main_net)
                 count += 1
 

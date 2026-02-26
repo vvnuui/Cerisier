@@ -1,7 +1,6 @@
 """Money-flow analysis: main force net inflow, big-order ratio, retail divergence, momentum."""
 
 import logging
-from decimal import Decimal
 
 from .base import AnalyzerBase
 from .types import AnalysisResult, Signal

@@ -1,7 +1,6 @@
 """Chip / margin-trading analysis: margin trend, short pressure, leverage ratio, momentum."""
 
 import logging
-from decimal import Decimal
 
 from .base import AnalyzerBase
 from .types import AnalysisResult, Signal
