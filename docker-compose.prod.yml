@@ -1,17 +1,26 @@
 services:
   postgres:
     image: timescale/timescaledb:latest-pg16
+    restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - backend
     deploy:
       resources:
         limits:
           memory: 400M
           cpus: "0.5"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-cerisier}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     command: >
       postgres
         -c shared_buffers=256MB
@@ -21,36 +30,78 @@ services:
 
   redis:
     image: redis:7-alpine
+    restart: unless-stopped
     command: redis-server --maxmemory 50mb --maxmemory-policy allkeys-lru
+    networks:
+      - backend
     deploy:
       resources:
         limits:
           memory: 64M
           cpus: "0.1"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   django:
     build:
       context: .
       dockerfile: docker/django/Dockerfile
+    restart: unless-stopped
     env_file: .env
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.prod
+      POSTGRES_HOST: postgres
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+    volumes:
+      - static_files:/app/staticfiles
+      - media_files:/app/media
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - backend
     deploy:
       resources:
         limits:
           memory: 300M
           cpus: "0.5"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    command: >
+      sh -c "python manage.py migrate --noinput &&
+             python manage.py collectstatic --noinput &&
+             gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 2 --worker-tmp-dir /dev/shm"
 
   celery:
     build:
       context: .
       dockerfile: docker/django/Dockerfile
+    restart: unless-stopped
     command: celery -A config worker -l info --pool=solo -c 1
     env_file: .env
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.prod
+      POSTGRES_HOST: postgres
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - backend
     deploy:
       resources:
         limits:
@@ -61,11 +112,21 @@ services:
     build:
       context: .
       dockerfile: docker/django/Dockerfile
+    restart: unless-stopped
     command: celery -A config beat -l info
     env_file: .env
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.prod
+      POSTGRES_HOST: postgres
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - backend
     deploy:
       resources:
         limits:
@@ -76,20 +137,34 @@ services:
     build:
       context: .
       dockerfile: docker/nginx/Dockerfile
+    restart: unless-stopped
     ports:
       - "80:80"
+      - "443:443"
     volumes:
       - frontend_dist:/var/www/frontend
+      - static_files:/var/www/static
       - media_files:/var/www/media
+      - certbot_conf:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
     depends_on:
       - django
+    networks:
+      - backend
     deploy:
       resources:
         limits:
           memory: 50M
           cpus: "0.1"
 
+networks:
+  backend:
+    driver: bridge
+
 volumes:
   postgres_data:
   frontend_dist:
+  static_files:
   media_files:
+  certbot_conf:
+  certbot_www:
