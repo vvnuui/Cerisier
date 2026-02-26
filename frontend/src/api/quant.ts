@@ -249,6 +249,12 @@ export const quantApi = {
   getPortfolio(id: number) {
     return apiClient.get<Portfolio>(`/quant/portfolios/${id}/`)
   },
+  updatePortfolio(id: number, data: { name?: string; is_active?: boolean }) {
+    return apiClient.patch<Portfolio>(`/quant/portfolios/${id}/`, data)
+  },
+  deletePortfolio(id: number) {
+    return apiClient.delete(`/quant/portfolios/${id}/`)
+  },
 
   // Simulator - Trade
   executeTrade(portfolioId: number, data: { stock_code: string; trade_type: string; shares: number; price: number; reason?: string }) {

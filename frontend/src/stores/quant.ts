@@ -7,6 +7,7 @@ export const useQuantStore = defineStore('quant', () => {
   const recommendations = ref<Recommendation[]>([])
   const portfolios = ref<Portfolio[]>([])
   const activePortfolioPerformance = ref<PerformanceMetric[]>([])
+  const stockCount = ref(0)
   const loadingRecommendations = ref(false)
   const loadingPortfolios = ref(false)
   const loadingPerformance = ref(false)
@@ -73,11 +74,21 @@ export const useQuantStore = defineStore('quant', () => {
     }
   }
 
+  async function fetchStockCount() {
+    try {
+      const { data } = await quantApi.getStocks({ page: 1 })
+      stockCount.value = data.count
+    } catch {
+      // Non-critical, keep 0
+    }
+  }
+
   async function fetchDashboardData() {
     error.value = null
     await Promise.all([
       fetchRecommendations({ limit: 10 }),
       fetchPortfolios(),
+      fetchStockCount(),
     ])
     // After portfolios are loaded, fetch performance for the active one
     if (activePortfolio.value) {
@@ -89,6 +100,7 @@ export const useQuantStore = defineStore('quant', () => {
     recommendations,
     portfolios,
     activePortfolioPerformance,
+    stockCount,
     loadingRecommendations,
     loadingPortfolios,
     loadingPerformance,
@@ -100,6 +112,7 @@ export const useQuantStore = defineStore('quant', () => {
     fetchRecommendations,
     fetchPortfolios,
     fetchPerformance,
+    fetchStockCount,
     fetchDashboardData,
   }
 })

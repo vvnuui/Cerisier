@@ -42,12 +42,19 @@
       <el-row :gutter="20" class="content-row">
         <el-col :xs="24" :lg="16">
           <div class="panel">
-            <h2 class="panel-title">Market Overview</h2>
-            <VChart
-              class="trend-chart"
-              :option="chartOption"
-              autoresize
-            />
+            <h2 class="panel-title">Portfolio Performance</h2>
+            <template v-if="store.activePortfolioPerformance.length > 0">
+              <VChart
+                class="trend-chart"
+                :option="chartOption"
+                autoresize
+              />
+            </template>
+            <div v-else class="empty-chart">
+              <el-icon :size="48" style="color: var(--color-text-muted)"><TrendCharts /></el-icon>
+              <p>No performance data available yet.</p>
+              <p class="empty-chart-hint">Create a portfolio and execute trades to see your equity curve.</p>
+            </div>
           </div>
         </el-col>
         <el-col :xs="24" :lg="8">
@@ -130,7 +137,7 @@ const statCards = computed(() => {
   return [
     {
       label: 'Total Stocks',
-      formatted: recCount > 0 ? `${recCount}+` : '--',
+      formatted: store.stockCount > 0 ? store.stockCount.toLocaleString() : '--',
       icon: DataLine,
       color: '#00d4ff',
       bgColor: 'rgba(0, 212, 255, 0.12)',
@@ -159,18 +166,11 @@ const statCards = computed(() => {
   ]
 })
 
-// Chart option - portfolio equity curve or sample market data
+// Chart option - portfolio equity curve
 const chartOption = computed<ECOption>(() => {
   const perf = store.activePortfolioPerformance
-  const hasData = perf.length > 0
-
-  // Use performance data if available, otherwise generate sample data
-  const dates = hasData
-    ? [...perf].reverse().map((p) => p.date)
-    : generateSampleDates(30)
-  const values = hasData
-    ? [...perf].reverse().map((p) => p.cumulative_return)
-    : generateSampleValues(30)
+  const dates = [...perf].reverse().map((p) => p.date)
+  const values = [...perf].reverse().map((p) => p.cumulative_return)
 
   return {
     tooltip: {
@@ -278,27 +278,6 @@ function formatNumber(value: number): string {
   if (value >= 1e8) return (value / 1e8).toFixed(2) + '亿'
   if (value >= 1e4) return (value / 1e4).toFixed(2) + '万'
   return value.toLocaleString()
-}
-
-function generateSampleDates(count: number): string[] {
-  const dates: string[] = []
-  const today = new Date()
-  for (let i = count - 1; i >= 0; i--) {
-    const d = new Date(today)
-    d.setDate(d.getDate() - i)
-    dates.push(d.toISOString().split('T')[0])
-  }
-  return dates
-}
-
-function generateSampleValues(count: number): number[] {
-  const values: number[] = []
-  let value = 0
-  for (let i = 0; i < count; i++) {
-    value += (Math.random() - 0.45) * 1.2
-    values.push(Number(value.toFixed(2)))
-  }
-  return values
 }
 
 // Fetch data
@@ -497,6 +476,26 @@ onMounted(() => {
   font-size: 12px;
   color: var(--color-text-muted);
   line-height: 1.4;
+}
+
+.empty-chart {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 350px;
+  color: var(--color-text-muted);
+  gap: 12px;
+}
+
+.empty-chart p {
+  margin: 0;
+  font-size: 14px;
+}
+
+.empty-chart-hint {
+  font-size: 12px !important;
+  opacity: 0.7;
 }
 
 .empty-picks {
