@@ -1,0 +1,48 @@
+# Version control
+.git
+.gitignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.egg-info
+.venv
+venv
+.mypy_cache
+.pytest_cache
+.ruff_cache
+htmlcov
+.coverage
+
+# Node / Frontend build artifacts
+node_modules
+frontend/node_modules
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+
+# Docker
+docker-compose.override.yml
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Backups
+backups/
+
+# Documentation (not needed in image)
+*.md
+LICENSE
+
+# Claude
+.claude/
