@@ -73,10 +73,8 @@ cerisier/
 ## 快速开始
 
 ### 环境要求
-- Python 3.12+
-- Node.js 20+
-- PostgreSQL 16（推荐 TimescaleDB）
-- Redis 7
+- Docker + Docker Compose（Docker 方式）
+- 或 Python 3.12+ / Node.js 20+ / PostgreSQL 16 / Redis 7（本地开发方式）
 
 ### 1. 克隆项目
 
@@ -98,9 +96,9 @@ cp .env.example .env
 docker-compose up -d
 ```
 
-服务启动后：
-- 后端 API：http://localhost:8000
+首次启动会自动安装依赖，等待所有容器就绪后访问：
 - 前端页面：http://localhost:5173
+- 后端 API：http://localhost:8000
 
 ### 4. 本地开发
 
